@@ -5,6 +5,21 @@ const mysql = require('mysql2');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const tokenSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
+const path = require('path');
+const cors = require('cors');
+
+app.get('/index.js', (req, res) => { res.sendFile("index.js", { root: path.join(__dirname, "public") }); });
+app.get('/leaflet/leaflet.js', (req, res) => { res.sendFile("leaflet.js", { root: path.join(__dirname, "leaflet") }); });
+app.get('/leaflet/leaflet.css', (req, res) => { res.sendFile("leaflet.css", { root: path.join(__dirname, "leaflet") }); });
+
+app.use(express.static(__dirname + 'public'));
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) => {
+	res.sendFile("index.html", { root: path.join(__dirname, "public") });
+});
+
 
 
 const connection = mysql.createConnection({
