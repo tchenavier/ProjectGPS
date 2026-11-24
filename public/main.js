@@ -103,6 +103,9 @@ window.addEventListener('load', () => {
                 localStorage.removeItem('token');
             }
             afficherEtatConnexion(user);
+            if (user) {
+                afficherPointsGPS();
+            }
         })
         .catch(() => afficherEtatConnexion(null));
 });
@@ -229,27 +232,84 @@ changePasswordBtn.addEventListener('click', () => {
         .catch(() => alert('Erreur lors du changement de mot de passe.'));
 });
 
+// Affiche les points GPS enregistrés en base de données.
+function convertirCoordonneeGPS(valeur, limiteDegres) {
+    if (valeur === null || valeur === '') return NaN;
+    const coordonnee = Number(valeur);
+    if (!Number.isFinite(coordonnee)) return NaN;
+    if (Math.abs(coordonnee) <= limiteDegres) {
+        return coordonnee;
+    }
+
+    const absolue = Math.abs(coordonnee);
+    const degres = Math.floor(absolue / 100);
+    const minutes = absolue % 100;
+    const decimale = degres + minutes / 60;
+    if (degres > limiteDegres || minutes >= 60 || decimale > limiteDegres) return NaN;
+    return Math.sign(coordonnee) * decimale;
+}
+
+function afficherPointsGPS() {
+    fetch('/recupererPoints', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    }).then(async response => {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error(
+                `Réponse non JSON reçue (${response.status}). Vérifie que le serveur Express est démarré et que la route /recupererPoints est disponible.`
+            );
+        }
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Erreur lors de la récupération des points GPS.');
+        }
+        if (!Array.isArray(data.points)) {
+            throw new Error('La réponse du serveur ne contient pas de liste de points.');
+        }
+        return data.points;
+    }).then(points => {
+        pointsLayer.clearLayers();
+        const coords = points.map(point => [
+            convertirCoordonneeGPS(point.latitude, 90),
+            convertirCoordonneeGPS(point.longitude, 180)
+        ]);
+
+        if (coords.some(([latitude, longitude]) =>
+            !Number.isFinite(latitude) || !Number.isFinite(longitude)
+        )) {
+            throw new Error('La base de données contient des coordonnées GPS invalides.');
+        }
+        if (coords.length === 0) {
+            return;
+        }
+
+        if (coords.length > 1) {
+            L.polyline(coords).addTo(pointsLayer);
+        }
+        coords.forEach(coord => {
+            L.marker(coord).addTo(pointsLayer);
+        });
+        map.fitBounds(pointsLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
+    }).catch(error => {
+        console.error('Erreur lors de la récupération des points GPS :', error);
+        alert(error.message || 'Erreur lors de la récupération des points GPS.');
+    });
+}
+
+
 // Affiche le formulaire de changement de mot de passe lorsque le bouton est cliqué
 document.getElementById('changemdp').addEventListener('click', () => {
     const form = document.getElementById('changePasswordForm');
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
 });
 
-
-const points = [[4987, 230], [4990, 235]]; // à remplacer par tes vraies données
-
 const map = L.map('map').setView([49.4295, 2.0807], 11);
+const pointsLayer = L.layerGroup().addTo(map);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
-
-const coords = points.map(p => [p[0] / 100, p[1] / 100]);
-coords.forEach(c => L.marker(c).addTo(map));
-L.polyline(coords).addTo(map);
-
-L.marker([49.4295, 2.0807]).addTo(map).bindPopup('Beauvais');
 
 map.on('click', e => {
     L.popup().setLatLng(e.latlng).setContent(e.latlng.toString()).openOn(map);

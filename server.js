@@ -259,6 +259,18 @@ app.post('/register', async (req, res) => {
     }
   });
 
+  // Récupère les points GPS enregistrés en base de données.
+  app.get('/recupererPoints', requireToken, (req, res) => {
+    connection.query('SELECT latitude, longitude FROM Point ORDER BY id ASC', (err, results) => {
+      if (err) {
+        console.error('Erreur lors de la récupération des points :', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+        return;
+      }
+      res.json({ points: results });
+    });
+  });
+
   app.use('/leaflet', express.static(path.join(__dirname, 'leaflet')));
 
   const PORT = process.env.PORT || 3000;
