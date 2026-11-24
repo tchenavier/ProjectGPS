@@ -1,29 +1,15 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion</title>
     <link rel="stylesheet" href="main.css">
-
-    <link rel="stylesheet" href="leaflet/leaflet.css" integrity="sha256-RwBOaSN3kFqUIUAZaMmmo5grrEMRXwBCe0sCRJgqydk=" crossorigin=""/>
-	<script type="importmap">
-		{
-			"imports": {
-				"leaflet": "/leaflet/leaflet.js"
-			}
-		}
-	</script>
-	<style>
-		html, body {
-			height: 100%;
-			margin: 0;
-		}
-		.leaflet-container {
-			height: 100%;
-		}
-	</style>
-
+    <link rel="stylesheet" href="/leaflet/leaflet.css">
+    <style>
+        #map { height: 500px; }
+    </style>
 </head>
 <body>
     <h1 id="text">Bienvenue sur notre page d'inscription</h1>
@@ -41,11 +27,11 @@
         <input type="button" value="Changer le mot de passe" id="changePasswordBtn">
     </div>
     <button id="surprise">surprise</button>
-    <img id="phoenixImage" src="images/perenoel.jpg" alt="Phénix">
+   
 
-    <div id='map'></div>
+    <div id="map"></div>
 
-
-    <script src="main.js"></script>
+    <script src="/leaflet/leaflet.js"></script>
+    <script src="/main.js"></script>
 </body>
 </html>

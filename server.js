@@ -8,7 +8,7 @@ const tokenSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || requ
 const path = require('path');
 const cors = require('cors');
 
-app.get('/index.js', (req, res) => { res.sendFile("index.js", { root: path.join(__dirname, "public") }); });
+app.get('/main.js', (req, res) => { res.sendFile("main.js", { root: path.join(__dirname, "public") }); });
 app.get('/leaflet/leaflet.js', (req, res) => { res.sendFile("leaflet.js", { root: path.join(__dirname, "leaflet") }); });
 app.get('/leaflet/leaflet.css', (req, res) => { res.sendFile("leaflet.css", { root: path.join(__dirname, "leaflet") }); });
 
@@ -26,8 +26,7 @@ const connection = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT)
+  database: process.env.DB_NAME
 });
 
 connection.connect((err) => {
@@ -46,16 +45,16 @@ function requireToken(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ message: 'Connexion requise.' });
 
-  jwt.verify(token, tokenSecret, (err, user) => {
+  jwt.verify(token, tokenSecret, (err, User) => {
     if (err) return res.status(401).json({ message: 'Token invalide.' });
-    req.user = user;
+    req.User = User;
     next();
   });
 }
 
 function requireAdmin(req, res, next) {
   requireToken(req, res, () => {
-    if (req.user.login !== 'admin') {
+    if (req.User.name !== 'admin') {
       return res.status(403).json({ message: 'Accès réservé à l\'administrateur.' });
     }
     next();
@@ -75,7 +74,7 @@ app.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 8 caractères.' });
   }
 
-  connection.query('SELECT * FROM user WHERE login = ?', [req.body.inputValue], async (err, results) => {
+  connection.query('SELECT * FROM User WHERE name = ?', [req.body.inputValue], async (err, results) => {
     if (err) {
       console.error('Erreur lors de la vérification du login :', err);
       res.status(500).json({ message: 'Erreur serveur' });
@@ -86,9 +85,10 @@ app.post('/register', async (req, res) => {
       return;
     }
     try {
+      console.log(req.body.password);
       const hashedPassword = await bcrypt.hash(req.body.password, 10);
       connection.query(
-        'INSERT INTO user (login, password) VALUES (?, ?)',
+        'INSERT INTO User (name, password) VALUES (?, ?)',
         [req.body.inputValue, hashedPassword],
         (err, results) => {
           if (err) {
@@ -108,10 +108,13 @@ app.post('/register', async (req, res) => {
   //route se connecter 
   app.post('/connexion', (req, res) => {
     const { login, password } = req.body;
-    connection.query('SELECT * FROM user WHERE login = ?', [login], async (err, results) => {
+    // console.log(req.body.password );
+    // console.log(req.body.login);
+    connection.query('SELECT * FROM User WHERE name = ?', [login], async (err, results) => {
       if (err) {
         console.error('Erreur lors de la vérification des identifiants :', err);
         res.status(500).json({ message: 'Erreur serveur' });
+        console.log(err);
         return;
       }
       if (results.length === 0) {
@@ -126,7 +129,7 @@ app.post('/register', async (req, res) => {
           return;
         }
 
-        const user = { Id: results[0].Id, login: results[0].login };
+        const user = { Id: results[0].Id, name: results[0].name };
         const token = jwt.sign(user, tokenSecret, { expiresIn: '1h' });
         res.json({ message: 'Connexion réussie !', user, token });
       } catch (compareErr) {
@@ -137,19 +140,19 @@ app.post('/register', async (req, res) => {
   });
 
   app.get('/session', requireToken, (req, res) => {
-    res.json({ user: req.user });
+    res.json({ user: req.User });
   });
 
   //route qui permet au user de supprimer son compte 
   app.post('/supprimerCompte', requireToken, (req, res) => {
-    const user = req.user;
-    if (user.login === 'admin') {
+    const user = req.User;
+    if (user.name === 'admin') {
       res.status(403).json({ message: 'Suppression non autorisée.' });
       return;
     }
 
     connection.query(
-      'DELETE FROM user WHERE Id = ? AND login <> ?',
+      'DELETE FROM User WHERE Id = ? AND name <> ?',
       [user.Id, 'admin'],
       (err, results) => {
         if (err) {
@@ -169,7 +172,7 @@ app.post('/register', async (req, res) => {
 
   //route qui permet de récupérer tout les utilisateurs sauf l'admin
   app.get('/afficherUsers', requireAdmin, (req, res) => {
-    connection.query('SELECT Id, login FROM user WHERE login != ?', ['admin'], (err, results) => {
+    connection.query('SELECT Id, name FROM User WHERE name != ?', ['admin'], (err, results) => {
       if (err) {
         console.error('Erreur lors de la récupération des utilisateurs :', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -182,7 +185,7 @@ app.post('/register', async (req, res) => {
   // Supprime l'utilisateur demandé, après vérification de l'admin.
   app.post('/supprimerUser', requireAdmin, (req, res) => {
     connection.query(
-      'DELETE FROM user WHERE Id = ? AND login <> ?',
+      'DELETE FROM User WHERE Id = ? AND name <> ?',
       [req.body.id, 'admin'],
       (err, results) => {
         if (err) {
@@ -201,7 +204,7 @@ app.post('/register', async (req, res) => {
 
   //route qui permet de changer le mot de passe d'un utilisateur et on ne peux pas changer pour remettre le même mot de passe que l'ancien et faire en sorte d'avoir 8 caractères minimum pour le mot de passe
   app.post('/changerMotDePasse', requireToken, async (req, res) => {
-    const user = req.user;
+    const user = req.User;
     const newPassword = req.body.newPassword;
 
     if (!newPassword || newPassword.length < 8) {
@@ -209,12 +212,12 @@ app.post('/register', async (req, res) => {
     }
   });
   app.post('/changerMotDePasse', requireToken, async (req, res) => {
-    const user = req.user;
+    const user = req.User;
     const newPassword = req.body.newPassword;
 
     try {
       // Vérifier si le nouveau mot de passe est le même que l'ancien
-      connection.query('SELECT password FROM user WHERE Id = ?', [user.Id], async (err, results) => {
+      connection.query('SELECT password FROM User WHERE Id = ?', [user.Id], async (err, results) => {
         if (err) {
           console.error('Erreur lors de la récupération du mot de passe :', err);
           res.status(500).json({ message: 'Erreur serveur' });
@@ -234,7 +237,7 @@ app.post('/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         connection.query(
-          'UPDATE user SET password = ? WHERE Id = ?',
+          'UPDATE User SET password = ? WHERE Id = ?',
           [hashedPassword, user.Id],
           (err, results) => {
             if (err) {
@@ -255,6 +258,8 @@ app.post('/register', async (req, res) => {
       res.status(500).json({ message: 'Erreur serveur' });
     }
   });
+
+  app.use('/leaflet', express.static(path.join(__dirname, 'leaflet')));
 
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {

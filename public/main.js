@@ -13,41 +13,9 @@ const changemdpBtn = document.getElementById('changemdp');
 const phoenixImage = document.getElementById('phoenixImage');
 const surpriseButton = document.getElementById('surprise');
 
-import {LeafletMap, TileLayer, Marker, Polyline, Polygon, Popup} from 'leaflet';
-const map = new LeafletMap('map').setView([50.419456, 1.575165], 11);
-
-const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-	maxZoom: 19,
-	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-}).addTo(map);
-
-new Marker([49.877, 2.301]).addTo(map);
-new Marker([49.877, 3.301]).addTo(map);
-
-for (var i = 0; i < points.length; i++) {
-	points[i][0] /= 100;
-	points[i][1] /= 100;
-	const marker = new Marker([points[i][0], points[i][1]]).addTo(map);
-}
-
-for (var i = 0; i < points.length - 1; i++) {
-	const polyline = new Polyline([
-		[points[i][0], points[i][1]],
-		[points[i+1][0], points[i+1][1]]
-	]).addTo(map);
-}
-
-function onMapClick(e) {
-	new Popup()
-		.setLatLng(e.latlng)
-		.setContent(e.latlng.toString())
-		.openOn(map);
-}
-
-map.on('click', onMapClick);
 
 //fonction inscription 
-monBouton4.addEventListener('click', () => {
+registerButton.addEventListener('click', () => {
     fetch('/register', {
         method: 'POST',
         headers: {
@@ -85,7 +53,7 @@ loginButton.addEventListener('click', () => {
 
 function afficherEtatConnexion(user) {
     currentUser = user;
-    const isAdmin = user && user.login === 'admin';
+    const isAdmin = user && user.name === 'admin';
     afficherUserBtn.style.display = isAdmin ? 'block' : 'none';
     userListContainer.style.display = 'none';
     decoBtn.style.display = user ? 'block' : 'none';
@@ -99,9 +67,10 @@ function afficherEtatConnexion(user) {
         registerButton.style.display = 'none';
         decoBtn.style.display = 'block';
         supprBtn.style.display = 'block';
-        text.textContent = `Bienvenue ${user.login} !`;
+        text.textContent = `Bienvenue ${user.name} !`;
         changemdpBtn.style.display = 'block';
         surpriseButton.style.display = 'block';
+        document.getElementById('map').style.display = 'block';
     } else {
         loginInput.style.display = 'block';
         passwordInput.style.display = 'block';
@@ -112,6 +81,8 @@ function afficherEtatConnexion(user) {
         text.textContent = 'Bienvenue sur notre page d\'inscription';
         changemdpBtn.style.display = 'none';
         surpriseButton.style.display = 'none';
+        document.getElementById('map').style.display = 'none';
+
     }
 }
 
@@ -264,3 +235,22 @@ document.getElementById('changemdp').addEventListener('click', () => {
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
 });
 
+
+const points = [[4987, 230], [4990, 235]]; // à remplacer par tes vraies données
+
+const map = L.map('map').setView([49.4295, 2.0807], 11);
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+const coords = points.map(p => [p[0] / 100, p[1] / 100]);
+coords.forEach(c => L.marker(c).addTo(map));
+L.polyline(coords).addTo(map);
+
+L.marker([49.4295, 2.0807]).addTo(map).bindPopup('Beauvais');
+
+map.on('click', e => {
+    L.popup().setLatLng(e.latlng).setContent(e.latlng.toString()).openOn(map);
+});
